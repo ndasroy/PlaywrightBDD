@@ -8,6 +8,8 @@ import { BDDConfig } from '../config/types';
 import { StepDefinition, StepMatchInput } from './stepDefinition';
 import { MatchedStepDefinition } from './matchedStepDefinition';
 import { toBoolean } from '../utils';
+import { matchWithStepIndex } from './stepIndex';
+import { matchWithCache } from './cache';
 
 export class StepFinder {
   constructor(private config: BDDConfig) {}
@@ -27,9 +29,23 @@ export class StepFinder {
   }
 
   private matchByText(definitions: StepDefinition[], step: StepMatchInput) {
-    return definitions
-      .map((definition) => definition.matchStep(step)) // prettier-ignore
-      .filter(toBoolean);
+    if (this.config.useStepIndex) {
+      return matchWithCache({
+        mode: 'index',
+        definitions,
+        step,
+        matchUncached: (uncachedStep) => matchWithStepIndex(definitions, uncachedStep),
+      });
+    }
+    return matchWithCache({
+      mode: 'scan',
+      definitions,
+      step,
+      matchUncached: (uncachedStep) =>
+        definitions
+          .map((definition) => definition.matchStep(uncachedStep)) // prettier-ignore
+          .filter(toBoolean),
+    });
   }
 
   private filterByKeyword(
